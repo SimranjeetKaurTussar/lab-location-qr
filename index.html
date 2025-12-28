@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Lab Location QR</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 30px;
+      }
+
+      #qrWrapper svg {
+        width: 300px;
+        height: 300px;
+        border: 2px solid #000;
+        margin-top: 20px;
+      }
+
+      button {
+        margin: 10px;
+        padding: 10px 18px;
+        font-size: 15px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Lab Location QR</h2>
+
+    <div id="qrWrapper"></div>
+
+    <button onclick="downloadSVG()">Download SVG</button>
+    <button onclick="downloadPNG()">Download PNG</button>
+    <button onclick="downloadPDF()">Download PDF</button>
+
+    <script>
+      const MAP_LINK = "https://www.google.com/maps?q=30.7586389,76.6747778";
+      const LOGO_PATH = "27lab.svg";
+
+      let finalSVG = "";
+      let finalSVGElement = null;
+
+      // Convert logo SVG to base64
+      async function loadLogoBase64() {
+        const res = await fetch(LOGO_PATH);
+        const text = await res.text();
+        return "data:image/svg+xml;base64," + btoa(text);
+      }
+
+      QRCode.toString(
+        MAP_LINK,
+        {
+          type: "svg",
+          errorCorrectionLevel: "H",
+          margin: 2,
+        },
+        async (err, qrSvg) => {
+          if (err) {
+            alert("QR generation failed");
+            return;
+          }
+
+          const logoBase64 = await loadLogoBase64();
+
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(qrSvg, "image/svg+xml");
+          const svg = doc.documentElement;
+
+          const [, , w, h] = svg.getAttribute("viewBox").split(" ").map(Number);
+
+          svg.setAttribute("width", "400");
+          svg.setAttribute("height", "400");
+
+          // Logo sizing (SAFE)
+          const logoSize = w * 0.22;
+          const bgSize = logoSize;
+          const x = (w - bgSize) / 2;
+          const y = (h - bgSize) / 2;
+
+          // White background
+          const bg = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "rect"
+          );
+          bg.setAttribute("x", x);
+          bg.setAttribute("y", y);
+          bg.setAttribute("width", bgSize);
+          bg.setAttribute("height", bgSize);
+          bg.setAttribute("fill", "#fff");
+
+          // Embedded logo
+          const logo = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "image"
+          );
+          logo.setAttribute("href", logoBase64);
+          logo.setAttribute("x", x);
+          logo.setAttribute("y", y);
+          logo.setAttribute("width", logoSize);
+          logo.setAttribute("height", logoSize);
+
+          svg.appendChild(bg);
+          svg.appendChild(logo);
+
+          document.getElementById("qrWrapper").appendChild(svg);
+          finalSVGElement = svg;
+          finalSVG = new XMLSerializer().serializeToString(svg);
+        }
+      );
+
+      // SVG download
+      function downloadSVG() {
+        const blob = new Blob([finalSVG], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Lab-QR.svg";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      // PNG download
+      function downloadPNG() {
+        const img = new Image();
+        const svgBlob = new Blob([finalSVG], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 800;
+          canvas.height = 800;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, 800, 800);
+
+          const a = document.createElement("a");
+          a.href = canvas.toDataURL("image/png");
+          a.download = "Lab-QR.png";
+          a.click();
+
+          URL.revokeObjectURL(url);
+        };
+
+        img.src = url;
+      }
+
+      function downloadPDF() {
+        const { jsPDF } = window.jspdf;
+
+        const img = new Image();
+        const svgBlob = new Blob([finalSVG], {
+          type: "image/svg+xml;charset=utf-8",
+        });
+        const url = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = 800;
+          canvas.height = 800;
+          const ctx = canvas.getContext("2d");
+
+          // white background for PDF
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const pngData = canvas.toDataURL("image/png");
+
+          const pdf = new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4",
+          });
+
+          pdf.addImage(pngData, "PNG", 30, 30, 150, 150);
+          pdf.save("Lab-QR.pdf");
+
+          URL.revokeObjectURL(url);
+        };
+
+        img.onerror = () => {
+          alert("PDF generation failed");
+          URL.revokeObjectURL(url);
+        };
+
+        img.src = url;
+      }
+    </script>
+  </body>
+</html>
