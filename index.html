@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>Lab Location QR</title>
+
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
@@ -28,6 +29,7 @@
       }
     </style>
   </head>
+
   <body>
     <h2>Lab Location QR</h2>
 
@@ -39,17 +41,8 @@
 
     <script>
       const MAP_LINK = "https://www.google.com/maps?q=30.7586389,76.6747778";
-      const LOGO_PATH = "27lab.svg";
 
       let finalSVG = "";
-      let finalSVGElement = null;
-
-      // Convert logo SVG to base64
-      async function loadLogoBase64() {
-        const res = await fetch(LOGO_PATH);
-        const text = await res.text();
-        return "data:image/svg+xml;base64," + btoa(text);
-      }
 
       QRCode.toString(
         MAP_LINK,
@@ -58,56 +51,21 @@
           errorCorrectionLevel: "H",
           margin: 2,
         },
-        async (err, qrSvg) => {
+        (err, qrSvg) => {
           if (err) {
             alert("QR generation failed");
             return;
           }
 
-          const logoBase64 = await loadLogoBase64();
-
           const parser = new DOMParser();
           const doc = parser.parseFromString(qrSvg, "image/svg+xml");
           const svg = doc.documentElement;
 
-          const [, , w, h] = svg.getAttribute("viewBox").split(" ").map(Number);
-
+          // Force print size
           svg.setAttribute("width", "400");
           svg.setAttribute("height", "400");
 
-          // Logo sizing (SAFE)
-          const logoSize = w * 0.22;
-          const bgSize = logoSize;
-          const x = (w - bgSize) / 2;
-          const y = (h - bgSize) / 2;
-
-          // White background
-          const bg = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "rect"
-          );
-          bg.setAttribute("x", x);
-          bg.setAttribute("y", y);
-          bg.setAttribute("width", bgSize);
-          bg.setAttribute("height", bgSize);
-          bg.setAttribute("fill", "#fff");
-
-          // Embedded logo
-          const logo = document.createElementNS(
-            "http://www.w3.org/2000/svg",
-            "image"
-          );
-          logo.setAttribute("href", logoBase64);
-          logo.setAttribute("x", x);
-          logo.setAttribute("y", y);
-          logo.setAttribute("width", logoSize);
-          logo.setAttribute("height", logoSize);
-
-          svg.appendChild(bg);
-          svg.appendChild(logo);
-
           document.getElementById("qrWrapper").appendChild(svg);
-          finalSVGElement = svg;
           finalSVG = new XMLSerializer().serializeToString(svg);
         }
       );
@@ -134,6 +92,9 @@
           canvas.width = 800;
           canvas.height = 800;
           const ctx = canvas.getContext("2d");
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, 800, 800);
 
           const a = document.createElement("a");
@@ -147,6 +108,7 @@
         img.src = url;
       }
 
+      // PDF download
       function downloadPDF() {
         const { jsPDF } = window.jspdf;
 
@@ -162,7 +124,6 @@
           canvas.height = 800;
           const ctx = canvas.getContext("2d");
 
-          // white background for PDF
           ctx.fillStyle = "#ffffff";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
